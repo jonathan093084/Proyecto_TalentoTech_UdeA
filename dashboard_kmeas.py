@@ -8,7 +8,7 @@ from sklearn.cluster import KMeans
 import numpy as np
 
 # Cargar datos
-df = pd.read_csv("diversified_job_postings.csv")
+df = pd.read_csv("diversified_job_postings_version0.csv")
 df['posting_date'] = pd.to_datetime(df['posting_date'], errors='coerce')
 df['application_deadline'] = pd.to_datetime(df['application_deadline'], errors='coerce')
 df['application_duration_days'] = (df['application_deadline'] - df['posting_date']).dt.days
