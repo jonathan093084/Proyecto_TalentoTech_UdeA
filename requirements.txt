@@ -9,3 +9,4 @@ StandardScaler
 scikit-learn
 scipy
 sklearn.preprocessing
+kmodes
