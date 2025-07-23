@@ -41,10 +41,8 @@ seccion = st.sidebar.radio("Selecciona una sección:", (
     "Inicio",
     "Habilidades Demandadas",
     "Compensación y Salarios",
-    "Educación",
     "Análisis Geográfico",
-    "Tendencias del Mercado",
-    "Duración del Proceso"
+    "Ofertas de Empleo"
 ))
 
 # Defino los filtros en el Sidebar 
@@ -54,6 +52,7 @@ education_required_options = ['Todos'] + list(df["education_required"].unique())
 industry_options = ['Todos'] + list(df["industry"].unique())
 employment_type_options = ['Todos'] + list(df["employment_type"].unique())
 experience_level_options = ['Todos'] + list(df["experience_level"].unique())
+country_options = ['Todos'] + list(df["company_location"].unique())
 
 #Creo los selectbox para los filtros 
 company_size = st.sidebar.selectbox("Tamaño de compañía", options=company_size_options)
@@ -61,6 +60,7 @@ education_required = st.sidebar.selectbox("Nivel de educación", options=educati
 industry = st.sidebar.selectbox("Industria", options=industry_options)
 employment_type = st.sidebar.selectbox("Tipo de empleo", options=employment_type_options)
 experience_level = st.sidebar.selectbox("Nivel de experiencia", options=experience_level_options)
+country = st.sidebar.selectbox("País de la empresa", options=country_options)
 
 # Aplicar filtros
 df_filtered = df.copy()
@@ -74,6 +74,8 @@ if employment_type != 'Todos':
     df_filtered = df_filtered[df_filtered["employment_type"] == employment_type]
 if experience_level != 'Todos':
     df_filtered = df_filtered[df_filtered["experience_level"] == experience_level]
+if country != 'Todos':
+    df_filtered = df_filtered[df_filtered["company_location"] == country]
 
 st.markdown("""
 <h1 style='text-align: center;'>Dashboard - Análisis Global de Salarios para Empleos Relacionados con IA</h1>
@@ -117,7 +119,7 @@ elif seccion == "Habilidades Demandadas":
     col1, col2, col3, col4 = st.columns(4)
     num_habilidades = df_filtered.explode('required_skills')['required_skills'].nunique()
     habilidad_top = df_filtered.explode('required_skills')['required_skills'].value_counts().idxmax() if not df_filtered.empty else '-'
-    salario_top_skill = df_filtered.explode('required_skills').groupby('required_skills')['salary_usd'].mean().sort_values(ascending=False).iloc[0] if num_habilidades > 0 else 0
+    salario_top_skill = df_filtered.explode('required_skills').groupby('required_skills')['salary_usd'].mean().sort_values().iloc[0] if num_habilidades > 0 else 0
     salario_min_skill = df_filtered.explode('required_skills').groupby('required_skills')['salary_usd'].mean().sort_values().iloc[0] if num_habilidades > 0 else 0
     col1.metric("Habilidades Demandadas", f"{num_habilidades}")
     col2.metric("Habilidad más frecuente", f"{habilidad_top}")
@@ -299,23 +301,6 @@ elif seccion == "Compensación y Salarios":
     st.plotly_chart(fig_roles, use_container_width=True)
 
     st.markdown("---")
-    st.subheader("Salario promedio por tipo de empleo")
-    salary_by_employment = df_filtered.groupby('employment_type')['salary_usd'].mean().sort_values(ascending=False).reset_index()
-    fig_employment = px.bar(
-        salary_by_employment,
-        x='employment_type',
-        y='salary_usd',
-        title='Salario promedio según tipo de empleo',
-        labels={'employment_type': 'Tipo de empleo', 'salary_usd': 'Salario Promedio (USD)'},
-        text='salary_usd',
-        color='employment_type',
-        color_discrete_sequence=px.colors.sequential.Plasma
-    )
-    fig_employment.update_traces(texttemplate='%{text:.2s}', textposition='outside')
-    fig_employment.update_layout(xaxis={'categoryorder': 'total descending'}, xaxis_tickangle=-45, showlegend=False, title_x=0.5)
-    st.plotly_chart(fig_employment, use_container_width=True)
-
-    st.markdown("---")
     st.subheader("Top 15 industrias con mayores salarios")
     salary_by_industry = df_filtered.groupby('industry')['salary_usd'].mean().sort_values(ascending=False).head(15).reset_index()
     fig = px.bar(
@@ -363,18 +348,6 @@ elif seccion == "Compensación y Salarios":
     st.plotly_chart(fig, use_container_width=True)
     
     st.markdown("---")
-    st.subheader("Histograma de salarios")
-    fig = px.histogram(
-        df_filtered,
-        x='salary_usd',
-        nbins=30,
-        color_discrete_sequence=px.colors.sequential.Plasma,
-        title='Distribución de salarios',
-        labels={'salary_usd': 'Salario (USD)'}
-    )
-    st.plotly_chart(fig, use_container_width=True)
-    
-    st.markdown("---")
     st.subheader("Matriz de correlación de variables numéricas")
     numeric_cols = df_filtered.select_dtypes(include=['float64', 'int64'])
     corr_matrix = numeric_cols.corr()
@@ -388,106 +361,6 @@ elif seccion == "Compensación y Salarios":
     )
     st.plotly_chart(fig, use_container_width=True)
 
-elif seccion == "Educación":
-    st.markdown("---")
-    # KPIs sección Educación
-    col1, col2, col3, col4 = st.columns(4)
-    num_niveles = df_filtered['education_required'].nunique()
-    nivel_top = df_filtered['education_required'].value_counts().idxmax() if not df_filtered.empty else '-'
-    salario_top_edu = df_filtered.groupby('education_required')['salary_usd'].mean().sort_values(ascending=False).iloc[0] if num_niveles > 0 else 0
-    salario_min_edu = df_filtered.groupby('education_required')['salary_usd'].mean().sort_values().iloc[0] if num_niveles > 0 else 0
-    col1.metric("Niveles educativos únicos", f"{num_niveles}")
-    col2.metric("Nivel más frecuente", f"{nivel_top}")
-    col3.metric("Salario promedio más alto", f"{salario_top_edu:,.0f}")
-    col4.metric("Salario promedio más bajo", f"{salario_min_edu:,.0f}")
-    st.markdown("---")
-    st.subheader("Salario promedio por nivel de educación")
-    salary_by_education = df_filtered.groupby('education_required')['salary_usd'].mean().sort_values(ascending=False).reset_index()
-    fig = px.bar(
-        salary_by_education,
-        x='education_required',
-        y='salary_usd',
-        color='education_required',
-        color_discrete_sequence=px.colors.sequential.Viridis,
-        title='Salario promedio por nivel de educación',
-        labels={'education_required': 'Nivel de Educación', 'salary_usd': 'Salario promedio (USD)'},
-        text='salary_usd'
-    )
-    fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
-    fig.update_layout(xaxis_tickangle=-45, showlegend=False, title_x=0.5)
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown("---")
-    st.subheader("Boxplot: Salario por nivel de educación")
-    fig = px.box(
-        df_filtered,
-        x='education_required',
-        y='salary_usd',
-        color='education_required',
-        color_discrete_sequence=px.colors.sequential.Viridis,
-        title='Distribución del salario por nivel de educación',
-        labels={'education_required': 'Nivel de educación', 'salary_usd': 'Salario (USD)'}
-    )
-    fig.update_layout(xaxis_tickangle=-45, title_x=0.5)
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown("---")
-    st.subheader("Salario promedio por nivel de educación y cargo (Top 10 cargos)")
-    education_by_job = df_filtered.groupby(['job_title', 'education_required'])['salary_usd'].mean().reset_index(name='avg_salary')
-    top_jobs = df_filtered['job_title'].value_counts().head(10).index
-    filtered_data = education_by_job[education_by_job['job_title'].isin(top_jobs)]
-    custom_colors = [px.colors.sequential.Viridis[6], px.colors.sequential.Viridis[9], px.colors.sequential.Viridis[3], px.colors.sequential.Viridis[7]]
-    fig = px.bar(
-        filtered_data,
-        x='job_title',
-        y='avg_salary',
-        color='education_required',
-        barmode='group',
-        color_discrete_sequence=custom_colors,
-        text='avg_salary',
-        title='Salario promedio por nivel de educación y cargo',
-        labels={'job_title': 'Cargo', 'avg_salary': 'Salario promedio (USD)', 'education_required': 'Nivel Educativo'}
-    )
-    fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
-    fig.update_layout(xaxis={'categoryorder': 'total descending'}, xaxis_tickangle=-45, showlegend=True, title_x=0.5)
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown("---")
-    st.subheader("Salario promedio y mediano por nivel de educación")
-    salary_stats = df_filtered.groupby('education_required')['salary_usd'].agg(['mean', 'median', 'count']).reset_index()
-    salary_stats = salary_stats.sort_values('mean', ascending=False)
-    viridis_colors = px.colors.sequential.Viridis
-    color_media = viridis_colors[4]
-    color_mediana = viridis_colors[5]
-    fig_stats = go.Figure()
-    fig_stats.add_trace(go.Bar(
-        x=salary_stats['education_required'],
-        y=salary_stats['mean'],
-        name='Media',
-        marker_color=color_media,
-        text=[f'{x:.2f}' for x in salary_stats['mean']],
-        textposition='outside',
-    ))
-    fig_stats.add_trace(go.Bar(
-        x=salary_stats['education_required'],
-        y=salary_stats['median'],
-        name='Mediana',
-        marker_color=color_mediana,
-        text=[f'{x:.2f}' for x in salary_stats['median']],
-        textposition='outside',
-    ))
-    fig_stats.update_layout(
-        title='Salario promedio y mediano por nivel de educación',
-        xaxis=dict(title='Nivel de Educación', tickangle=-45),
-        yaxis=dict(title='Salario (USD)'),
-        barmode='group',
-        legend_title='Estadística',
-        margin=dict(t=50, b=100),
-        height=500
-    )
-    fig_stats.update_layout(title_x=0.5)
-    st.plotly_chart(fig_stats, use_container_width=True)
-
 elif seccion == "Análisis Geográfico":
     
     st.markdown("---")
@@ -499,11 +372,32 @@ elif seccion == "Análisis Geográfico":
     num_residencias = df_filtered['employee_residence'].nunique()
     col1.metric("Países únicos", f"{num_paises}")
     col2.metric("País con más ofertas", f"{pais_top}")
-    col3.metric("Total empresas", f"{num_empresas}")
+    col3.metric("Total Ofertas", f"{num_empresas}")
     col4.metric("Residencias únicas", f"{num_residencias}")
     st.markdown("---")
+    
+    # Mapa dinámico de ofertas por país (OpenStreetMap, sin token)
+    st.subheader("Mapa dinámico de ofertas por país")
+    offers_by_country = df_filtered['company_location'].value_counts().reset_index()
+    offers_by_country.columns = ['country', 'offers']
+    fig = px.choropleth_mapbox(
+        offers_by_country,
+        locations="country",
+        color="offers",
+        geojson="https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json",
+        featureidkey="properties.name",
+        color_continuous_scale=px.colors.sequential.Viridis[::-1],
+        mapbox_style="open-street-map",
+        zoom=1,
+        center={"lat": 20, "lon": 0},
+        title="Ofertas de empleo en IA por país (mapa interactivo)",
+        labels={"offers": "Cantidad de ofertas", "country": "País"}
+    )
+    fig.update_layout(margin={"r":0,"t":40,"l":0,"b":0}, title_x=0.5)
+    st.plotly_chart(fig, use_container_width=True)
+    
     st.subheader("Cantidad de ofertas por país (top 10)")
-    offers_by_country = df_filtered['company_location'].value_counts().head(10).reset_index()
+    offers_by_country = df_filtered['company_location'].value_counts().head(20).reset_index()
     offers_by_country.columns = ['company_location', 'Cantidad']
     fig = px.bar(
         offers_by_country,
@@ -645,19 +539,22 @@ elif seccion == "Análisis Geográfico":
     fig.update_layout(xaxis_tickangle=-45, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
 
-elif seccion == "Tendencias del Mercado":
-    
+elif seccion == "Ofertas de Empleo":
     st.markdown("---")
-    # KPIs sección Tendencias del Mercado
+    # KPIs sección Duración del Proceso
     col1, col2, col3, col4 = st.columns(4)
-    fecha_min = df_filtered['posting_date'].min()
-    fecha_max = df_filtered['posting_date'].max()
-    total_postings = df_filtered['posting_date'].count()
-    promedio_duracion = df_filtered['application_duration_days'].mean()
-    col1.metric("Primera publicación", f"{fecha_min.date() if pd.notnull(fecha_min) else '-'}")
-    col2.metric("Última publicación", f"{fecha_max.date() if pd.notnull(fecha_max) else '-'}")
-    col3.metric("Total publicaciones", f"{total_postings}")
-    col4.metric("Duración promedio (días)", f"{promedio_duracion:,.1f}")
+    duracion_max = df_filtered['application_duration_days'].max()
+    duracion_min = df_filtered['application_duration_days'].min()
+    duracion_mediana = df_filtered['application_duration_days'].median()
+    # Calcular promedio de ofertas por mes
+    ofertas_por_mes = df_filtered.groupby(df_filtered['posting_date'].dt.to_period('M')).size()
+    promedio_ofertas_mes = ofertas_por_mes.mean() if not ofertas_por_mes.empty else 0
+    col1.metric("Promedio ofertas/mes", f"{promedio_ofertas_mes:,.0f}")
+    col2.metric("Duración máxima (días)", f"{duracion_max:,.0f}")
+    col3.metric("Duración mínima (días)", f"{duracion_min:,.0f}")
+    col4.metric("Promedio de duración (días)", f"{duracion_mediana:,.0f}")
+    
+    
     st.markdown("---")
     st.subheader("Evolución de publicaciones en IA")
     job_posting_trend = df_filtered.groupby(df_filtered['posting_date'].dt.to_period('M')).size().reset_index(name='num_postings')
@@ -670,48 +567,31 @@ elif seccion == "Tendencias del Mercado":
         title='Evolución de la oferta de empleo en IA a lo largo del tiempo',
         labels={'posting_date': 'Fecha', 'num_postings': 'Número de publicaciones'}
     )
-    fig.update_layout(xaxis_tickangle=-45, title_x=0.5)
+    fig.update_layout(xaxis_tickangle=-45, title_x=0.5, yaxis=dict(range=[0, 1600]))
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
-    st.subheader("Picos de publicación por mes en 2024")
-    df_2024 = df_filtered[df_filtered['posting_date'].dt.year == 2024].copy()
-    df_2024['posting_month'] = df_2024['posting_date'].dt.month_name()
-    monthly_2024 = df_2024['posting_month'].value_counts().reset_index()
-    monthly_2024.columns = ['month', 'num_postings']
-    fig = px.bar(
-        monthly_2024,
-        x='month',
-        y='num_postings',
-        color='num_postings',
-        color_continuous_scale=px.colors.sequential.Viridis,
-        title='Picos de publicación de vacantes por mes en 2024',
-        labels={'month': 'Mes', 'num_postings': 'Número de publicaciones'},
-        text='num_postings'
-    )
-    fig.update_traces(texttemplate='%{text}', textposition='outside')
-    fig.update_layout(xaxis_tickangle=-45, showlegend=False, title_x=0.5)
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown("---")
-    st.subheader("Evolución de ofertas por modalidad remota")
+    st.subheader("Evolución de ofertas por modalidad de Trabajo")
     remote_trend = df_filtered.groupby([df_filtered['posting_date'].dt.to_period('M'), 'remote_ratio']).size().reset_index(name='num_offers')
     remote_trend['posting_date'] = remote_trend['posting_date'].dt.to_timestamp()
+    custom_colors = [px.colors.sequential.Viridis[6],px.colors.sequential.Viridis[1],px.colors.sequential.Viridis[8]] 
+
     fig = px.line(
         remote_trend,
         x='posting_date',
         y='num_offers',
         color='remote_ratio',
         markers=True,
-        color_discrete_sequence=px.colors.sequential.Plasma,
+        color_discrete_sequence=custom_colors,
         title='Evolución de las ofertas por modalidad de trabajo remoto a lo largo del tiempo',
         labels={'posting_date': 'Fecha', 'num_offers': 'Número de ofertas', 'remote_ratio': 'Modalidad'}
     )
-    fig.update_layout(xaxis_tickangle=-45, title_x=0.5)
+    fig.update_layout(xaxis_tickangle=-45, title_x=0.5, )
     st.plotly_chart(fig, use_container_width=True)
 
+
     st.markdown("---")
-    st.subheader("Evolución de duración entre publicación y fecha límite")
+    st.subheader("Evolución de duración entre publicación y fecha límite de la oferta")
     duration_trend = df_filtered.groupby(df_filtered['posting_date'].dt.to_period('M'))['application_duration_days'].mean().reset_index()
     duration_trend['posting_date'] = duration_trend['posting_date'].dt.to_timestamp()
     fig = px.line(
@@ -719,94 +599,12 @@ elif seccion == "Tendencias del Mercado":
         x='posting_date',
         y='application_duration_days',
         markers=True,
-        title='Duración promedio entre publicación y fecha límite a lo largo del tiempo',
+        title='Duración promedio entre publicación y fecha límite de la oferta a lo largo del tiempo',
         labels={'posting_date': 'Fecha', 'application_duration_days': 'Duración promedio (días)'}
     )
-    fig.update_layout(xaxis_tickangle=-45, title_x=0.5)
+    fig.update_layout(xaxis_tickangle=-45, title_x=0.5 )
     st.plotly_chart(fig, use_container_width=True)
 
-elif seccion == "Duración del Proceso":
-    st.markdown("---")
-    # KPIs sección Duración del Proceso
-    col1, col2, col3, col4 = st.columns(4)
-    duracion_max = df_filtered['application_duration_days'].max()
-    duracion_min = df_filtered['application_duration_days'].min()
-    duracion_mediana = df_filtered['application_duration_days'].median()
-    duracion_std = df_filtered['application_duration_days'].std()
-    col1.metric("Duración máxima (días)", f"{duracion_max:,.0f}")
-    col2.metric("Duración mínima (días)", f"{duracion_min:,.0f}")
-    col3.metric("Mediana duración (días)", f"{duracion_mediana:,.0f}")
-    col4.metric("Desviación estándar", f"{duracion_std:,.0f}")
-    st.markdown("---")
-    st.subheader("Evolución de duración entre publicación y fecha límite")
-    duration_trend = df_filtered.groupby(df_filtered['posting_date'].dt.to_period('M'))['application_duration_days'].mean().reset_index()
-    duration_trend['posting_date'] = duration_trend['posting_date'].dt.to_timestamp()
-    fig = px.line(
-        duration_trend,
-        x='posting_date',
-        y='application_duration_days',
-        markers=True,
-        title='Duración promedio entre publicación y fecha límite a lo largo del tiempo',
-        labels={'posting_date': 'Fecha', 'application_duration_days': 'Duración promedio (días)'}
-    )
-    fig.update_layout(xaxis_tickangle=-45, title_x=0.5)
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown("---")
-    st.subheader("Distribución de la duración del proceso de aplicación")
-    fig = px.histogram(
-        df_filtered,
-        x='application_duration_days',
-        nbins=30,
-        color_discrete_sequence=px.colors.sequential.Plasma,
-        title='Duración del proceso de aplicación (días)',
-        labels={'application_duration_days': 'Duración (días)'}
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown("---")
-    st.subheader("Boxplot de duración por industria")
-    fig = px.box(
-        df_filtered,
-        x='industry',
-        y='application_duration_days',
-        color='industry',
-        color_discrete_sequence=px.colors.sequential.Viridis,
-        title='Duración del proceso por industria',
-        labels={'industry': 'Industria', 'application_duration_days': 'Duración (días)'}
-    )
-    fig.update_layout(xaxis_tickangle=-45, title_x=0.5)
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown("---")
-    st.subheader("Boxplot de duración por cargo (top 10)")
-    top_jobs = df_filtered['job_title'].value_counts().head(10).index
-    df_top_jobs = df_filtered[df_filtered['job_title'].isin(top_jobs)]
-    fig = px.box(
-        df_top_jobs,
-        x='job_title',
-        y='application_duration_days',
-        color='job_title',
-        color_discrete_sequence=px.colors.sequential.Plasma,
-        title='Duración del proceso por cargo (Top 10)',
-        labels={'job_title': 'Cargo', 'application_duration_days': 'Duración (días)'}
-    )
-    fig.update_layout(xaxis_tickangle=-45, title_x=0.5)
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown("---")
-    st.subheader("Boxplot de duración por nivel de educación")
-    fig = px.box(
-        df_filtered,
-        x='education_required',
-        y='application_duration_days',
-        color='education_required',
-        color_discrete_sequence=px.colors.sequential.Viridis,
-        title='Duración del proceso por nivel de educación',
-        labels={'education_required': 'Nivel de educación', 'application_duration_days': 'Duración (días)'}
-    )
-    fig.update_layout(xaxis_tickangle=-45, title_x=0.5)
-    st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
     st.subheader("Duración promedio por tipo de empleo")
