@@ -36,13 +36,14 @@ def load_data():
 df = load_data()
 
 # Creo las categorias del Sidebar principal de navegación con las opciones definidas que vamos a mostrar
-st.sidebar.title("Explorador de Empleos en IA")
+st.sidebar.title("Secciones del Análisis")
 seccion = st.sidebar.radio("Selecciona una sección:", (
+    "Inicio",
+    "Habilidades Demandadas",
     "Compensación y Salarios",
     "Educación",
     "Análisis Geográfico",
     "Tendencias del Mercado",
-    "Habilidades Demandadas",
     "Duración del Proceso"
 ))
 
@@ -74,8 +75,9 @@ if employment_type != 'Todos':
 if experience_level != 'Todos':
     df_filtered = df_filtered[df_filtered["experience_level"] == experience_level]
 
-st.title("Dashboard de Empleos IA")
-st.markdown("---")
+st.markdown("""
+<h1 style='text-align: center;'>Dashboard - Análisis Global de Salarios para Empleos Relacionados con IA</h1>
+""", unsafe_allow_html=True)
 # KPIs principales
 #col1, col2, col3, col4 = st.columns(4)
 #salario_promedio = df_filtered['salary_usd'].mean()
@@ -89,7 +91,132 @@ st.markdown("---")
 #st.markdown("---")
 
 # Mostrar contenido según la sección seleccionada
-if seccion == "Compensación y Salarios":
+if seccion == "Inicio":
+    st.markdown("---")
+    st.markdown("""
+    ## Bienvenido al Dashboard de Análisis Global de Salarios para Empleos Relacionados con IA
+    Este dashboard interactivo te permite explorar y analizar la oferta laboral en el sector de IA a nivel global. Aquí podrás:
+    - Visualizar tendencias salariales y de contratación.
+    - Analizar la demanda de habilidades y niveles educativos.
+    - Explorar la distribución geográfica de las ofertas.
+    - Investigar la duración de los procesos de aplicación y los tipos de empleo.
+    
+    **¿Cómo usarlo?**
+    Utiliza el menú lateral para navegar por las diferentes secciones temáticas. Aplica los filtros para personalizar los resultados según tus intereses (tamaño de empresa, industria, nivel de experiencia, etc.).
+    
+    **Fuente de datos:**
+    El análisis se basa en una base de datos de ofertas laborales diversificadas en IA, con variables como salario, ubicación, habilidades requeridas, tipo de contrato, entre otras.
+    
+    **Autores**: Soledad Cristina Soto, Fanllany Medina, Lucas, Jonathan Díaz Álvarez.
+    """)
+    
+elif seccion == "Habilidades Demandadas":
+    
+    st.markdown("---")
+    # KPIs sección Habilidades Demandadas
+    col1, col2, col3, col4 = st.columns(4)
+    num_habilidades = df_filtered.explode('required_skills')['required_skills'].nunique()
+    habilidad_top = df_filtered.explode('required_skills')['required_skills'].value_counts().idxmax() if not df_filtered.empty else '-'
+    salario_top_skill = df_filtered.explode('required_skills').groupby('required_skills')['salary_usd'].mean().sort_values(ascending=False).iloc[0] if num_habilidades > 0 else 0
+    salario_min_skill = df_filtered.explode('required_skills').groupby('required_skills')['salary_usd'].mean().sort_values().iloc[0] if num_habilidades > 0 else 0
+    col1.metric("Habilidades Demandadas", f"{num_habilidades}")
+    col2.metric("Habilidad más frecuente", f"{habilidad_top}")
+    col3.metric("Salario promedio más alto", f"{salario_top_skill:,.0f}")
+    col4.metric("Salario promedio más bajo", f"{salario_min_skill:,.0f}")
+    st.markdown("---")
+    
+    st.subheader("Top 20 habilidades con mayor salario promedio")
+    skills_salary = df_filtered.explode('required_skills')
+    salary_by_skill = skills_salary.groupby('required_skills')['salary_usd'].mean().reset_index()
+    top_salary_skills = salary_by_skill.sort_values('salary_usd', ascending=False).head(20)
+    fig = px.bar(
+        top_salary_skills,
+        x='salary_usd',
+        y='required_skills',
+        orientation='h',
+        color='salary_usd',
+        color_continuous_scale=px.colors.sequential.Viridis,
+        title='Top 20 habilidades con mayor salario promedio',
+        labels={'salary_usd': 'Salario promedio (USD)', 'required_skills': 'Habilidad'},
+        text='salary_usd'
+    )
+    fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
+    fig.update_layout(yaxis={'categoryorder': 'total ascending'}, coloraxis_showscale=True, title_x=0.5)
+    st.plotly_chart(fig, use_container_width=True)
+
+    col1, col2 = st.columns(2)
+    with col1:
+
+        st.markdown("---")
+        st.subheader("Top habilidades más demandadas (barras)")
+        top_skills_global = skills_salary['required_skills'].value_counts().reset_index()
+        top_skills_global.columns = ['required_skills', 'count']
+        fig = px.bar(
+            top_skills_global,
+            x='count',
+            y='required_skills',
+            orientation='h',
+            color='count',
+            color_continuous_scale=px.colors.sequential.Viridis,
+            title='Top habilidades más demandadas en IA',
+            labels={'count': 'Cantidad de menciones', 'required_skills': 'Habilidad'},
+            text='count'
+        )
+        fig.update_traces(texttemplate='%{text}', textposition='outside')
+        fig.update_layout(yaxis={'categoryorder': 'total ascending'}, coloraxis_showscale=True, title_x=0.5)
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col2:
+        st.markdown("---")
+        st.subheader("Top habilidades más demandadas (pie)")
+        top_skills_pie = skills_salary['required_skills'].value_counts().head(10).reset_index()
+        top_skills_pie.columns = ['required_skills', 'count']
+        fig = px.pie(
+            top_skills_pie,
+            names='required_skills',
+            values='count',
+            color_discrete_sequence=px.colors.sequential.Viridis,
+            title='Top 10 habilidades más demandadas en IA (global)',
+            labels={'required_skills': 'Habilidad', 'count': 'Cantidad'}
+        )
+        fig.update_layout(title_x=0.5)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    st.markdown("---")
+    st.subheader("Top habilidades más demandadas por país (burbujas)")
+    skills_by_country = df_filtered.explode('required_skills')
+    skill_demand = skills_by_country.groupby(['company_location', 'required_skills']).size().reset_index(name='count')
+    top_skills_by_country = skill_demand.sort_values('count', ascending=False)
+    fig = px.scatter(
+        top_skills_by_country,
+        x='company_location',
+        y='required_skills',
+        size='count',
+        color='count',
+        color_continuous_scale=px.colors.sequential.Viridis,
+        title='Top habilidades más demandadas por país',
+        labels={'company_location': 'País', 'required_skills': 'Habilidad', 'count': 'Demanda'}
+    )
+    fig.update_layout(xaxis_tickangle=-45, title_x=0.5)
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown("---")
+    st.subheader("Mapa de calor de habilidades mas demandadas por industria")
+    top_skills = skills_salary['required_skills'].value_counts().head(20).index
+    heatmap_data = skills_salary[skills_salary['required_skills'].isin(top_skills)].groupby(['industry', 'required_skills']).size().reset_index(name='count')
+    fig = px.density_heatmap(
+        heatmap_data,
+        x='industry',
+        y='required_skills',
+        z='count',
+        color_continuous_scale=px.colors.sequential.Darkmint,
+        title='Mapa de calor: demanda de habilidades por Industria',
+        labels={'industry': 'Industria', 'required_skills': 'Habilidad', 'count': 'Demanda'}
+    )
+    fig.update_layout(title_x=0.5)
+    st.plotly_chart(fig, use_container_width=True)
+
+elif seccion == "Compensación y Salarios":
     
     st.markdown("---")
     # KPIs sección Compensación y Salarios
@@ -116,7 +243,7 @@ if seccion == "Compensación y Salarios":
         color_discrete_sequence=px.colors.sequential.Viridis
     )
     fig.update_traces(texttemplate='%{text:.2s}', textposition='outside')
-    fig.update_layout(xaxis_tickangle=-45, showlegend=False)
+    fig.update_layout(xaxis_tickangle=-45, showlegend=False, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
@@ -133,7 +260,7 @@ if seccion == "Compensación y Salarios":
         color_discrete_sequence=px.colors.sequential.Plasma
     )
     fig.update_traces(texttemplate='%{text:.2s}', textposition='outside')
-    fig.update_layout(xaxis={'categoryorder': 'total descending'}, xaxis_tickangle=-45, showlegend=False)
+    fig.update_layout(xaxis={'categoryorder': 'total descending'}, xaxis_tickangle=-45, showlegend=False, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
@@ -150,7 +277,7 @@ if seccion == "Compensación y Salarios":
         color_discrete_sequence=px.colors.sequential.Plasma
     )
     fig_size.update_traces(texttemplate='%{text:.2s}', textposition='outside')
-    fig_size.update_layout(xaxis={'categoryorder': 'total descending'},xaxis_tickangle=-45, showlegend=False)
+    fig_size.update_layout(xaxis={'categoryorder': 'total descending'},xaxis_tickangle=-45, showlegend=False, title_x=0.5)
     st.plotly_chart(fig_size, use_container_width=True)
 
     st.markdown("---")
@@ -168,7 +295,7 @@ if seccion == "Compensación y Salarios":
         color_continuous_scale=px.colors.sequential.Viridis
     )
     fig_roles.update_traces(texttemplate='%{text:.2s}', textposition='outside')
-    fig_roles.update_layout(yaxis={'categoryorder': 'total ascending'}, coloraxis_showscale=True)
+    fig_roles.update_layout(yaxis={'categoryorder': 'total ascending'}, coloraxis_showscale=True, title_x=0.5)
     st.plotly_chart(fig_roles, use_container_width=True)
 
     st.markdown("---")
@@ -185,7 +312,7 @@ if seccion == "Compensación y Salarios":
         color_discrete_sequence=px.colors.sequential.Plasma
     )
     fig_employment.update_traces(texttemplate='%{text:.2s}', textposition='outside')
-    fig_employment.update_layout(xaxis={'categoryorder': 'total descending'}, xaxis_tickangle=-45, showlegend=False)
+    fig_employment.update_layout(xaxis={'categoryorder': 'total descending'}, xaxis_tickangle=-45, showlegend=False, title_x=0.5)
     st.plotly_chart(fig_employment, use_container_width=True)
 
     st.markdown("---")
@@ -202,7 +329,7 @@ if seccion == "Compensación y Salarios":
         labels={'industry': 'Industria', 'salary_usd': 'Salario promedio (USD)'}
     )
     fig.update_traces(texttemplate='%{x:.2f}', textposition='outside')
-    fig.update_layout(yaxis={'categoryorder': 'total ascending'}, coloraxis_showscale=True)
+    fig.update_layout(yaxis={'categoryorder': 'total ascending'}, coloraxis_showscale=True, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
@@ -218,7 +345,7 @@ if seccion == "Compensación y Salarios":
         labels={'education_required': 'Nivel de Educación', 'salary_usd': 'Salario promedio (USD)'}
     )
     fig.update_traces(texttemplate='%{y:.2f}', textposition='outside')
-    fig.update_layout(xaxis_tickangle=-45, showlegend=False)
+    fig.update_layout(xaxis_tickangle=-45, showlegend=False, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
@@ -232,97 +359,7 @@ if seccion == "Compensación y Salarios":
         title='Distribución del salario por nivel de experiencia',
         labels={'experience_level': 'Nivel de experiencia', 'salary_usd': 'Salario (USD)'}
     )
-    fig.update_layout(xaxis_tickangle=-45)
-    st.plotly_chart(fig, use_container_width=True)
-   
-    st.markdown("---")  
-    st.subheader("Boxplot: Salario por nivel de educación")
-    fig = px.box(
-        df_filtered,
-        x='education_required',
-        y='salary_usd',
-        color='education_required',
-        color_discrete_sequence=px.colors.sequential.Viridis,
-        title='Distribución del salario por nivel de educación',
-        labels={'education_required': 'Nivel de educación', 'salary_usd': 'Salario (USD)'}
-    )
-    fig.update_layout(xaxis_tickangle=-45)
-    st.plotly_chart(fig, use_container_width=True)
-    
-    st.markdown("---")
-    st.subheader("Boxplot: Salario por industria (top 10)")
-    top_industries = df_filtered['industry'].value_counts().head(10).index
-    df_top_industries = df_filtered[df_filtered['industry'].isin(top_industries)]
-    fig = px.box(
-        df_top_industries,
-        x='industry',
-        y='salary_usd',
-        color='industry',
-        color_discrete_sequence=px.colors.sequential.Viridis,
-        title='Distribución del salario por industria (Top 10)',
-        labels={'industry': 'Industria', 'salary_usd': 'Salario (USD)'}
-    )
-    fig.update_layout(xaxis_tickangle=-45)
-    st.plotly_chart(fig, use_container_width=True)
-   
-    st.markdown("---")
-    st.subheader("Boxplot: Salario por tamaño de empresa")
-    fig = px.box(
-        df_filtered,
-        x='company_size',
-        y='salary_usd',
-        color='company_size',
-        color_discrete_sequence=px.colors.sequential.Plasma,
-        title='Distribución del salario por tamaño de empresa',
-        labels={'company_size': 'Tamaño de empresa', 'salary_usd': 'Salario (USD)'}
-    )
-    fig.update_layout(xaxis_tickangle=-45)
-    st.plotly_chart(fig, use_container_width=True)
-   
-    st.markdown("---")
-    st.subheader("Boxplot: Salario por años de experiencia")
-    fig = px.box(
-        df_filtered,
-        x='years_experience',
-        y='salary_usd',
-        color='years_experience',
-        color_discrete_sequence=px.colors.sequential.Viridis,
-        title='Distribución del salario por años de experiencia',
-        labels={'years_experience': 'Años de experiencia', 'salary_usd': 'Salario (USD)'}
-    )
-    fig.update_layout(xaxis_tickangle=-45)
-    st.plotly_chart(fig, use_container_width=True)
-   
-    st.markdown("---")
-    st.subheader("Boxplot: Salario por cargo (top 10)")
-    top_jobs = df_filtered['job_title'].value_counts().head(10).index
-    df_top_jobs = df_filtered[df_filtered['job_title'].isin(top_jobs)]
-    fig = px.box(
-        df_top_jobs,
-        x='job_title',
-        y='salary_usd',
-        color='job_title',
-        color_discrete_sequence=px.colors.sequential.Plasma,
-        title='Distribución del salario por cargo (Top 10)',
-        labels={'job_title': 'Cargo', 'salary_usd': 'Salario (USD)'}
-    )
-    fig.update_layout(xaxis_tickangle=-45)
-    st.plotly_chart(fig, use_container_width=True)
-    
-    st.markdown("---")
-    st.subheader("Gráfico de burbujas: salario promedio por industria y tamaño de empresa")
-    bubble_data = df_filtered.groupby(['industry', 'company_size'])['salary_usd'].mean().reset_index()
-    fig = px.scatter(
-        bubble_data,
-        x='industry',
-        y='company_size',
-        size='salary_usd',
-        color='salary_usd',
-        color_continuous_scale=px.colors.sequential.Viridis,
-        title='Salario promedio por industria y tamaño de empresa',
-        labels={'industry': 'Industria', 'company_size': 'Tamaño de empresa', 'salary_usd': 'Salario promedio (USD)'}
-    )
-    fig.update_layout(xaxis_tickangle=-45)
+    fig.update_layout(xaxis={'categoryorder': 'total ascending'},xaxis_tickangle=-45, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
     
     st.markdown("---")
@@ -377,7 +414,7 @@ elif seccion == "Educación":
         text='salary_usd'
     )
     fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
-    fig.update_layout(xaxis_tickangle=-45, showlegend=False)
+    fig.update_layout(xaxis_tickangle=-45, showlegend=False, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
@@ -391,7 +428,7 @@ elif seccion == "Educación":
         title='Distribución del salario por nivel de educación',
         labels={'education_required': 'Nivel de educación', 'salary_usd': 'Salario (USD)'}
     )
-    fig.update_layout(xaxis_tickangle=-45)
+    fig.update_layout(xaxis_tickangle=-45, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
@@ -412,7 +449,7 @@ elif seccion == "Educación":
         labels={'job_title': 'Cargo', 'avg_salary': 'Salario promedio (USD)', 'education_required': 'Nivel Educativo'}
     )
     fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
-    fig.update_layout(xaxis={'categoryorder': 'total descending'}, xaxis_tickangle=-45, showlegend=True)
+    fig.update_layout(xaxis={'categoryorder': 'total descending'}, xaxis_tickangle=-45, showlegend=True, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
@@ -448,6 +485,7 @@ elif seccion == "Educación":
         margin=dict(t=50, b=100),
         height=500
     )
+    fig_stats.update_layout(title_x=0.5)
     st.plotly_chart(fig_stats, use_container_width=True)
 
 elif seccion == "Análisis Geográfico":
@@ -478,7 +516,7 @@ elif seccion == "Análisis Geográfico":
         text='Cantidad'
     )
     fig.update_traces(texttemplate='%{text}', textposition='outside')
-    fig.update_layout(xaxis_tickangle=-45, showlegend=False)
+    fig.update_layout(xaxis_tickangle=-45, showlegend=False, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
@@ -496,7 +534,7 @@ elif seccion == "Análisis Geográfico":
         text='num_companies'
     )
     fig.update_traces(texttemplate='%{text}', textposition='outside')
-    fig.update_layout(xaxis_tickangle=-45, showlegend=False)
+    fig.update_layout(xaxis_tickangle=-45, showlegend=False, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
@@ -514,7 +552,7 @@ elif seccion == "Análisis Geográfico":
         text='num_employees'
     )
     fig.update_traces(texttemplate='%{text}', textposition='outside')
-    fig.update_layout(xaxis_tickangle=-45, showlegend=False)
+    fig.update_layout(xaxis_tickangle=-45, showlegend=False, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
@@ -530,7 +568,7 @@ elif seccion == "Análisis Geográfico":
         title='Relación entre ubicación de la empresa y residencia del empleado',
         labels={'company_location': 'País empresa', 'employee_residence': 'País residencia', 'num_matches': 'Coincidencias'}
     )
-    fig.update_layout(xaxis_tickangle=-45)
+    fig.update_layout(xaxis_tickangle=-45, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
@@ -550,7 +588,7 @@ elif seccion == "Análisis Geográfico":
         text='Cantidad'
     )
     fig.update_traces(texttemplate='%{text}', textposition='outside')
-    fig.update_layout(xaxis_tickangle=-45, showlegend=True)
+    fig.update_layout(xaxis_tickangle=-45, showlegend=True, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
     
     st.markdown("---")
@@ -567,7 +605,7 @@ elif seccion == "Análisis Geográfico":
         text='Cantidad'
     )
     fig.update_traces(texttemplate='%{text}', textposition='outside')
-    fig.update_layout(xaxis_tickangle=-45, showlegend=True)
+    fig.update_layout(xaxis_tickangle=-45, showlegend=True, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
@@ -587,7 +625,7 @@ elif seccion == "Análisis Geográfico":
         text='count'
     )
     fig.update_traces(texttemplate='%{text}', textposition='outside')
-    fig.update_layout(yaxis={'categoryorder': 'total ascending'}, coloraxis_showscale=True)
+    fig.update_layout(yaxis={'categoryorder': 'total ascending'}, coloraxis_showscale=True, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
@@ -604,7 +642,7 @@ elif seccion == "Análisis Geográfico":
         title='Top habilidades más demandadas por país',
         labels={'company_location': 'País', 'required_skills': 'Habilidad', 'count': 'Demanda'}
     )
-    fig.update_layout(xaxis_tickangle=-45)
+    fig.update_layout(xaxis_tickangle=-45, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
 
 elif seccion == "Tendencias del Mercado":
@@ -632,7 +670,7 @@ elif seccion == "Tendencias del Mercado":
         title='Evolución de la oferta de empleo en IA a lo largo del tiempo',
         labels={'posting_date': 'Fecha', 'num_postings': 'Número de publicaciones'}
     )
-    fig.update_layout(xaxis_tickangle=-45)
+    fig.update_layout(xaxis_tickangle=-45, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
@@ -652,7 +690,7 @@ elif seccion == "Tendencias del Mercado":
         text='num_postings'
     )
     fig.update_traces(texttemplate='%{text}', textposition='outside')
-    fig.update_layout(xaxis_tickangle=-45, showlegend=False)
+    fig.update_layout(xaxis_tickangle=-45, showlegend=False, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
@@ -669,7 +707,7 @@ elif seccion == "Tendencias del Mercado":
         title='Evolución de las ofertas por modalidad de trabajo remoto a lo largo del tiempo',
         labels={'posting_date': 'Fecha', 'num_offers': 'Número de ofertas', 'remote_ratio': 'Modalidad'}
     )
-    fig.update_layout(xaxis_tickangle=-45)
+    fig.update_layout(xaxis_tickangle=-45, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
@@ -684,88 +722,7 @@ elif seccion == "Tendencias del Mercado":
         title='Duración promedio entre publicación y fecha límite a lo largo del tiempo',
         labels={'posting_date': 'Fecha', 'application_duration_days': 'Duración promedio (días)'}
     )
-    fig.update_layout(xaxis_tickangle=-45)
-    st.plotly_chart(fig, use_container_width=True)
-
-elif seccion == "Habilidades Demandadas":
-    
-    st.markdown("---")
-    # KPIs sección Habilidades Demandadas
-    col1, col2, col3, col4 = st.columns(4)
-    num_habilidades = df_filtered.explode('required_skills')['required_skills'].nunique()
-    habilidad_top = df_filtered.explode('required_skills')['required_skills'].value_counts().idxmax() if not df_filtered.empty else '-'
-    salario_top_skill = df_filtered.explode('required_skills').groupby('required_skills')['salary_usd'].mean().sort_values(ascending=False).iloc[0] if num_habilidades > 0 else 0
-    salario_min_skill = df_filtered.explode('required_skills').groupby('required_skills')['salary_usd'].mean().sort_values().iloc[0] if num_habilidades > 0 else 0
-    col1.metric("Habilidades únicas", f"{num_habilidades}")
-    col2.metric("Habilidad más frecuente", f"{habilidad_top}")
-    col3.metric("Salario promedio más alto", f"{salario_top_skill:,.0f}")
-    col4.metric("Salario promedio más bajo", f"{salario_min_skill:,.0f}")
-    st.markdown("---")
-    st.subheader("Top 20 habilidades con mayor salario promedio")
-    skills_salary = df_filtered.explode('required_skills')
-    salary_by_skill = skills_salary.groupby('required_skills')['salary_usd'].mean().reset_index()
-    top_salary_skills = salary_by_skill.sort_values('salary_usd', ascending=False).head(20)
-    fig = px.bar(
-        top_salary_skills,
-        x='salary_usd',
-        y='required_skills',
-        orientation='h',
-        color='salary_usd',
-        color_continuous_scale=px.colors.sequential.Viridis,
-        title='Top 20 habilidades con mayor salario promedio',
-        labels={'salary_usd': 'Salario promedio (USD)', 'required_skills': 'Habilidad'},
-        text='salary_usd'
-    )
-    fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
-    fig.update_layout(yaxis={'categoryorder': 'total ascending'}, coloraxis_showscale=True)
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown("---")
-    st.subheader("Top habilidades más demandadas (barras)")
-    top_skills_global = skills_salary['required_skills'].value_counts().reset_index()
-    top_skills_global.columns = ['required_skills', 'count']
-    fig = px.bar(
-        top_skills_global,
-        x='count',
-        y='required_skills',
-        orientation='h',
-        color='count',
-        color_continuous_scale=px.colors.sequential.Viridis,
-        title='Top habilidades más demandadas en IA (global)',
-        labels={'count': 'Cantidad de menciones', 'required_skills': 'Habilidad'},
-        text='count'
-    )
-    fig.update_traces(texttemplate='%{text}', textposition='outside')
-    fig.update_layout(yaxis={'categoryorder': 'total ascending'}, coloraxis_showscale=True)
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown("---")
-    st.subheader("Top habilidades más demandadas (pie)")
-    top_skills_pie = skills_salary['required_skills'].value_counts().head(10).reset_index()
-    top_skills_pie.columns = ['required_skills', 'count']
-    fig = px.pie(
-        top_skills_pie,
-        names='required_skills',
-        values='count',
-        color_discrete_sequence=px.colors.sequential.Viridis,
-        title='Top 10 habilidades más demandadas en IA (global)',
-        labels={'required_skills': 'Habilidad', 'count': 'Cantidad'}
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown("---")
-    st.subheader("Mapa de calor de habilidades por industria")
-    top_skills = skills_salary['required_skills'].value_counts().head(20).index
-    heatmap_data = skills_salary[skills_salary['required_skills'].isin(top_skills)].groupby(['industry', 'required_skills']).size().reset_index(name='count')
-    fig = px.density_heatmap(
-        heatmap_data,
-        x='industry',
-        y='required_skills',
-        z='count',
-        color_continuous_scale=px.colors.sequential.Darkmint,
-        title='Mapa de calor: demanda de habilidades por Industria',
-        labels={'industry': 'Industria', 'required_skills': 'Habilidad', 'count': 'Demanda'}
-    )
+    fig.update_layout(xaxis_tickangle=-45, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
 
 elif seccion == "Duración del Proceso":
@@ -792,7 +749,7 @@ elif seccion == "Duración del Proceso":
         title='Duración promedio entre publicación y fecha límite a lo largo del tiempo',
         labels={'posting_date': 'Fecha', 'application_duration_days': 'Duración promedio (días)'}
     )
-    fig.update_layout(xaxis_tickangle=-45)
+    fig.update_layout(xaxis_tickangle=-45, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
@@ -818,7 +775,7 @@ elif seccion == "Duración del Proceso":
         title='Duración del proceso por industria',
         labels={'industry': 'Industria', 'application_duration_days': 'Duración (días)'}
     )
-    fig.update_layout(xaxis_tickangle=-45)
+    fig.update_layout(xaxis_tickangle=-45, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
@@ -834,7 +791,7 @@ elif seccion == "Duración del Proceso":
         title='Duración del proceso por cargo (Top 10)',
         labels={'job_title': 'Cargo', 'application_duration_days': 'Duración (días)'}
     )
-    fig.update_layout(xaxis_tickangle=-45)
+    fig.update_layout(xaxis_tickangle=-45, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
@@ -848,7 +805,7 @@ elif seccion == "Duración del Proceso":
         title='Duración del proceso por nivel de educación',
         labels={'education_required': 'Nivel de educación', 'application_duration_days': 'Duración (días)'}
     )
-    fig.update_layout(xaxis_tickangle=-45)
+    fig.update_layout(xaxis_tickangle=-45, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
@@ -865,7 +822,7 @@ elif seccion == "Duración del Proceso":
         text='application_duration_days'
     )
     fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
-    fig.update_layout(xaxis_tickangle=-45, showlegend=False)
+    fig.update_layout(xaxis_tickangle=-45, showlegend=False, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
 
 st.markdown("---")
