@@ -3,6 +3,11 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
+st.set_page_config(
+    page_title="Dashboard IA Global",
+    page_icon="icon.png"
+)
+
 # Agrego Cache para que mantenga los datos en memoria.
 # Defino funcion para cargar y limpiar los datos
 @st.cache_data
@@ -39,8 +44,9 @@ df = load_data()
 st.sidebar.title("Secciones del Análisis")
 seccion = st.sidebar.radio("Selecciona una sección:", (
     "Inicio",
-    "Habilidades Demandadas",
+    "Habilidades",
     "Compensación y Salarios",
+    "Análisis de Correlación",
     "Análisis Geográfico",
     "Ofertas de Empleo"
 ))
@@ -80,20 +86,10 @@ if country != 'Todos':
 st.markdown("""
 <h1 style='text-align: center;'>Dashboard - Análisis Global de Salarios para Empleos Relacionados con IA</h1>
 """, unsafe_allow_html=True)
-# KPIs principales
-#col1, col2, col3, col4 = st.columns(4)
-#salario_promedio = df_filtered['salary_usd'].mean()
-#num_ofertas = len(df_filtered)
-#top_pais = df_filtered['company_location'].value_counts().idxmax() if not df_filtered.empty else '-'
-#num_industrias = df_filtered['industry'].nunique()
-#col1.metric("Salario Promedio (USD)", f"{salario_promedio:,.0f}")
-#col2.metric("Ofertas Totales", f"{num_ofertas}")
-#col3.metric("País con más ofertas", f"{top_pais}")
-#col4.metric("Industrias únicas", f"{num_industrias}")
-#st.markdown("---")
 
 # Mostrar contenido según la sección seleccionada
 if seccion == "Inicio":
+    
     st.markdown("---")
     st.markdown("""
     ## Bienvenido al Dashboard de Análisis Global de Salarios para Empleos Relacionados con IA
@@ -112,7 +108,7 @@ if seccion == "Inicio":
     **Autores**: Soledad Soto Gomez, Fanllany Medina Restrepo, Jonathan Diaz Alvarez, Lucas Perdomo Molano
     """)
     
-elif seccion == "Habilidades Demandadas":
+elif seccion == "Habilidades":
     
     st.markdown("---")
     # KPIs sección Habilidades Demandadas
@@ -354,6 +350,8 @@ elif seccion == "Compensación y Salarios":
     fig.update_layout(xaxis={'categoryorder': 'total ascending'},xaxis_tickangle=-45, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
     
+elif seccion == "Análisis de Correlación":
+    
     st.markdown("---")
     st.subheader("Matriz de correlación de variables numéricas")
     numeric_cols = df_filtered.select_dtypes(include=['float64', 'int64'])
@@ -367,6 +365,86 @@ elif seccion == "Compensación y Salarios":
         labels={col: col for col in corr_matrix.columns}
     )
     st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown("---")
+    st.subheader("Salario promedio por años de experiencia")
+    salary_by_experience_years = df.groupby('years_experience')['salary_usd'].mean().reset_index()
+    fig_salary_exp = px.bar(
+        salary_by_experience_years,
+        x='years_experience',
+        y='salary_usd',
+        title='Salario promedio (USD) según años de experiencia',
+        labels={'years_experience': 'Años de experiencia', 'salary_usd': 'Salario promedio (USD)'},
+        text='salary_usd',
+        color='years_experience',
+        color_continuous_scale=px.colors.sequential.Viridis
+    )
+    fig_salary_exp.update_traces(texttemplate='%{text:.2f}', textposition='outside')
+    fig_salary_exp.update_layout(xaxis_tickangle=-45, showlegend=False, title_x=0.5)
+    st.plotly_chart(fig_salary_exp, use_container_width=True)
+
+    st.markdown("---")
+    st.subheader("Clustering: KPrototypes y KMeans")
+    st.markdown("### KPrototypes: Clusters con variables mixtas")
+    try:
+        from kmodes.kprototypes import KPrototypes
+        features = ['salary_usd', 'years_experience', 'company_size', 'experience_level', 'education_required']
+        df_cluster = df_filtered[features].dropna().copy()
+        for col in ['company_size', 'experience_level', 'education_required']:
+            df_cluster[col] = df_cluster[col].astype(str)
+        X = df_cluster.values
+        kproto = KPrototypes(n_clusters=3, random_state=42)
+        categorical_columns = [2, 3, 4]
+        clusters = kproto.fit_predict(X, categorical=categorical_columns)
+        df_cluster['cluster'] = clusters.astype(str)
+        custom_colors = [px.colors.sequential.Viridis[1], px.colors.sequential.Viridis[6], px.colors.sequential.Viridis[9]]
+        fig_kproto = px.scatter(
+            df_cluster,
+            x='salary_usd',
+            y='years_experience',
+            color='cluster',
+            color_discrete_sequence=custom_colors,
+            title='K-Prototypes: Clusters con variables mixtas',
+            labels={
+                'salary_usd': 'Salario (USD)',
+                'years_experience': 'Años de experiencia',
+                'cluster': 'Cluster'
+            }
+        )
+        fig_kproto.update_layout(width=900, height=500, template='simple_white', title_x=0.5)
+        st.plotly_chart(fig_kproto, use_container_width=True)
+    except Exception as e:
+        st.warning(f"No se pudo mostrar el clustering KPrototypes: {e}")
+
+    st.markdown("### KMeans: Clusters según salario y años de experiencia")
+    try:
+        from sklearn.cluster import KMeans
+        from sklearn.preprocessing import StandardScaler
+        features = ['salary_usd', 'years_experience']
+        df_kmeans = df_filtered.dropna(subset=features).copy()
+        X = df_kmeans[features]
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+        kmeans = KMeans(n_clusters=3, random_state=42)
+        df_kmeans['cluster'] = kmeans.fit_predict(X_scaled)
+        custom_colors = [px.colors.sequential.Viridis[1], px.colors.sequential.Viridis[6], px.colors.sequential.Viridis[9]]
+        fig_kmeans = px.scatter(
+            df_kmeans,
+            x='salary_usd',
+            y='years_experience',
+            color='cluster',
+            color_continuous_scale=custom_colors,
+            title='Clusters según salario y años de experiencia',
+            labels={
+                'salary_usd': 'Salario (USD)',
+                'years_experience': 'Años de experiencia',
+                'cluster': 'Cluster'
+            }
+        )
+        fig_kmeans.update_layout(width=800, height=400, template='simple_white', title_x=1, legend_title_text='Cluster')
+        st.plotly_chart(fig_kmeans, use_container_width=True)
+    except Exception as e:
+        st.warning(f"No se pudo mostrar el clustering KMeans: {e}")
 
 elif seccion == "Análisis Geográfico":
     
@@ -497,7 +575,7 @@ elif seccion == "Análisis Geográfico":
         labels={'company_location': 'País', 'Cantidad': 'Cantidad de contratos', 'employment_type': 'Tipo de empleo'},
         text='Cantidad'
     )
-    fig.update_traces(texttemplate='%{text}', textposition='outside')
+    fig.update_traces(texttemplate='%{text}')
     fig.update_layout(xaxis_tickangle=-45, showlegend=True, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
     
@@ -514,7 +592,7 @@ elif seccion == "Análisis Geográfico":
         labels={'company_location': 'País', 'Cantidad': 'Cantidad de ofertas', 'remote_ratio': 'Modalidad'},
         text='Cantidad'
     )
-    fig.update_traces(texttemplate='%{text}', textposition='outside')
+    fig.update_traces(texttemplate='%{text}')
     fig.update_layout(xaxis_tickangle=-45, showlegend=True, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
 
