@@ -109,7 +109,7 @@ if seccion == "Inicio":
     **Fuente de datos:**
     El análisis se basa en una base de datos de ofertas laborales diversificadas en IA, con variables como salario, ubicación, habilidades requeridas, tipo de contrato, entre otras.
     
-    **Autores**: Soledad Cristina Soto, Fanllany Medina, Lucas, Jonathan Díaz Álvarez.
+    **Autores**: Soledad Soto Gomez, Fanllany Medina Restrepo, Jonathan Diaz Alvarez, Lucas Perdomo Molano
     """)
     
 elif seccion == "Habilidades Demandadas":
@@ -119,12 +119,17 @@ elif seccion == "Habilidades Demandadas":
     col1, col2, col3, col4 = st.columns(4)
     num_habilidades = df_filtered.explode('required_skills')['required_skills'].nunique()
     habilidad_top = df_filtered.explode('required_skills')['required_skills'].value_counts().idxmax() if not df_filtered.empty else '-'
-    salario_top_skill = df_filtered.explode('required_skills').groupby('required_skills')['salary_usd'].mean().sort_values().iloc[0] if num_habilidades > 0 else 0
-    salario_min_skill = df_filtered.explode('required_skills').groupby('required_skills')['salary_usd'].mean().sort_values().iloc[0] if num_habilidades > 0 else 0
+    df_explotado = df_filtered.explode('required_skills')
+    habilidad_top = df_explotado['required_skills'].value_counts().idxmax()
+    salario_promedio_skill = df_explotado[df_explotado['required_skills'] == habilidad_top]['salary_usd'].mean()
+    salario_top_skill = df_explotado[df_explotado['required_skills'] == habilidad_top]['salary_usd'].max()
+
+    #salario_top_skill = df_filtered.explode('required_skills').groupby('required_skills')['salary_usd'].mean().sort_values().iloc[0] if num_habilidades > 0 else 0
+    #salario_min_skill = df_filtered.explode('required_skills').groupby('required_skills')['salary_usd'].mean().sort_values().iloc[0] if num_habilidades > 0 else 0
     col1.metric("Habilidades Demandadas", f"{num_habilidades}")
     col2.metric("Habilidad más frecuente", f"{habilidad_top}")
-    col3.metric("Salario promedio más alto", f"{salario_top_skill:,.0f}")
-    col4.metric("Salario promedio más bajo", f"{salario_min_skill:,.0f}")
+    col3.metric(f"Salario mas alto - {habilidad_top}", f"{salario_top_skill:,.0f}")
+    col4.metric(f"Salario promedio - {habilidad_top}", f"{salario_promedio_skill:,.0f}")
     st.markdown("---")
     
     st.subheader("Top 20 habilidades con mayor salario promedio")
@@ -222,15 +227,17 @@ elif seccion == "Compensación y Salarios":
     
     st.markdown("---")
     # KPIs sección Compensación y Salarios
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     salario_max = df_filtered['salary_usd'].max()
     salario_min = df_filtered['salary_usd'].min()
     salario_mediana = df_filtered['salary_usd'].median()
+    salario_media = df_filtered['salary_usd'].mean()
     salario_std = df_filtered['salary_usd'].std()
     col1.metric("Salario Máximo (USD)", f"{salario_max:,.0f}")
     col2.metric("Salario Mínimo (USD)", f"{salario_min:,.0f}")
-    col3.metric("Mediana Salarial (USD)", f"{salario_mediana:,.0f}")
+    col3.metric("Mediana Salarial", f"{salario_mediana:,.0f}")
     col4.metric("Desviación estándar", f"{salario_std:,.0f}")
+    col5.metric("Salario Promedio", f"{salario_media:,.0f}")
     st.markdown("---")
     st.subheader("Top 10 países con mayores salarios promedio")
     top_salaries_by_country = df_filtered.groupby('company_location')['salary_usd'].mean().sort_values(ascending=False).head(10).reset_index()
@@ -354,7 +361,7 @@ elif seccion == "Compensación y Salarios":
     fig = px.imshow(
         corr_matrix,
         text_auto=True,
-        color_continuous_scale='Plasma',
+        color_continuous_scale='Viridis',
         aspect='auto',
         title='Matriz de correlación de variables numéricas',
         labels={col: col for col in corr_matrix.columns}
@@ -369,22 +376,31 @@ elif seccion == "Análisis Geográfico":
     num_paises = df_filtered['company_location'].nunique()
     pais_top = df_filtered['company_location'].value_counts().idxmax() if not df_filtered.empty else '-'
     num_empresas = df_filtered['company_location'].count()
-    num_residencias = df_filtered['employee_residence'].nunique()
-    col1.metric("Países únicos", f"{num_paises}")
-    col2.metric("País con más ofertas", f"{pais_top}")
-    col3.metric("Total Ofertas", f"{num_empresas}")
-    col4.metric("Residencias únicas", f"{num_residencias}")
+    num_industries = df_filtered['industry'].nunique()
+    col3.metric("Países con Ofertas", f"{num_paises}")
+    col1.metric("País con más ofertas", f"{pais_top}")
+    col2.metric("Total Ofertas", f"{num_empresas}")
+    col4.metric("Total de Industrias", f"{num_industries}")
     st.markdown("---")
     
     # Mapa dinámico de ofertas por país (OpenStreetMap, sin token)
     st.subheader("Mapa dinámico de ofertas por país")
+    # Mapeo de nombres de países para que coincidan con el GeoJSON
+    country_name_map = {
+        "United States": "United States of America",
+        "Russia": "Russian Federation",
+        "South Korea": "South Korea",
+        "North Korea": "North Korea",
+        "Singapore": "Singapore"
+    }
+    df_filtered['company_location'] = df_filtered['company_location'].replace(country_name_map)
     offers_by_country = df_filtered['company_location'].value_counts().reset_index()
     offers_by_country.columns = ['country', 'offers']
     fig = px.choropleth_mapbox(
         offers_by_country,
         locations="country",
         color="offers",
-        geojson="https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json",
+        geojson="https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson",
         featureidkey="properties.name",
         color_continuous_scale=px.colors.sequential.Viridis[::-1],
         mapbox_style="open-street-map",
@@ -553,7 +569,6 @@ elif seccion == "Ofertas de Empleo":
     col2.metric("Duración máxima (días)", f"{duracion_max:,.0f}")
     col3.metric("Duración mínima (días)", f"{duracion_min:,.0f}")
     col4.metric("Promedio de duración (días)", f"{duracion_mediana:,.0f}")
-    
     
     st.markdown("---")
     st.subheader("Evolución de publicaciones en IA")
