@@ -118,16 +118,56 @@ elif seccion == "Habilidades":
     df_explotado = df_filtered.explode('required_skills')
     habilidad_top = df_explotado['required_skills'].value_counts().idxmax()
     salario_promedio_skill = df_explotado[df_explotado['required_skills'] == habilidad_top]['salary_usd'].mean()
-    salario_top_skill = df_explotado[df_explotado['required_skills'] == habilidad_top]['salary_usd'].max()
+    salario_top_skill = df_explotado[df_explotado['required_skills'] == habilidad_top]['salary_usd'].median()
 
     #salario_top_skill = df_filtered.explode('required_skills').groupby('required_skills')['salary_usd'].mean().sort_values().iloc[0] if num_habilidades > 0 else 0
     #salario_min_skill = df_filtered.explode('required_skills').groupby('required_skills')['salary_usd'].mean().sort_values().iloc[0] if num_habilidades > 0 else 0
     col1.metric("Habilidades Demandadas", f"{num_habilidades}")
     col2.metric("Habilidad más frecuente", f"{habilidad_top}")
-    col3.metric(f"Salario mas alto - {habilidad_top}", f"{salario_top_skill:,.0f}")
+    col3.metric(f"Mediana Salario - {habilidad_top}", f"{salario_top_skill:,.0f}")
     col4.metric(f"Salario promedio - {habilidad_top}", f"{salario_promedio_skill:,.0f}")
     st.markdown("---")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        
+        st.subheader("Top habilidades más demandadas (barras)")
+        skills_salary = df_filtered.explode('required_skills')
+        top_skills_global = skills_salary['required_skills'].value_counts().reset_index()
+        top_skills_global.columns = ['required_skills', 'count']
+        fig = px.bar(
+            top_skills_global,
+            x='count',
+            y='required_skills',
+            orientation='h',
+            color='count',
+            color_continuous_scale=px.colors.sequential.Viridis,
+            title='Top habilidades más demandadas en IA',
+            labels={'count': 'Cantidad de menciones', 'required_skills': 'Habilidad'},
+            text='count'
+        )
+        fig.update_traces(texttemplate='%{text}', textposition='outside')
+        fig.update_layout(yaxis={'categoryorder': 'total ascending'}, coloraxis_showscale=True, title_x=0.5)
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col2:
+        
+        st.subheader("Top habilidades más demandadas (pie)")
+        skills_salary = df_filtered.explode('required_skills')
+        top_skills_pie = skills_salary['required_skills'].value_counts().head(10).reset_index()
+        top_skills_pie.columns = ['required_skills', 'count']
+        fig = px.pie(
+            top_skills_pie,
+            names='required_skills',
+            values='count',
+            color_discrete_sequence=px.colors.sequential.Viridis,
+            title='Top 10 habilidades más demandadas en IA (global)',
+            labels={'required_skills': 'Habilidad', 'count': 'Cantidad'}
+        )
+        fig.update_layout(title_x=0.5)
+        st.plotly_chart(fig, use_container_width=True)
     
+    st.markdown("---")
     st.subheader("Top 20 habilidades con mayor salario promedio")
     skills_salary = df_filtered.explode('required_skills')
     salary_by_skill = skills_salary.groupby('required_skills')['salary_usd'].mean().reset_index()
@@ -147,43 +187,7 @@ elif seccion == "Habilidades":
     fig.update_layout(yaxis={'categoryorder': 'total ascending'}, coloraxis_showscale=True, title_x=0.5)
     st.plotly_chart(fig, use_container_width=True)
 
-    col1, col2 = st.columns(2)
-    with col1:
 
-        st.markdown("---")
-        st.subheader("Top habilidades más demandadas (barras)")
-        top_skills_global = skills_salary['required_skills'].value_counts().reset_index()
-        top_skills_global.columns = ['required_skills', 'count']
-        fig = px.bar(
-            top_skills_global,
-            x='count',
-            y='required_skills',
-            orientation='h',
-            color='count',
-            color_continuous_scale=px.colors.sequential.Viridis,
-            title='Top habilidades más demandadas en IA',
-            labels={'count': 'Cantidad de menciones', 'required_skills': 'Habilidad'},
-            text='count'
-        )
-        fig.update_traces(texttemplate='%{text}', textposition='outside')
-        fig.update_layout(yaxis={'categoryorder': 'total ascending'}, coloraxis_showscale=True, title_x=0.5)
-        st.plotly_chart(fig, use_container_width=True)
-
-    with col2:
-        st.markdown("---")
-        st.subheader("Top habilidades más demandadas (pie)")
-        top_skills_pie = skills_salary['required_skills'].value_counts().head(10).reset_index()
-        top_skills_pie.columns = ['required_skills', 'count']
-        fig = px.pie(
-            top_skills_pie,
-            names='required_skills',
-            values='count',
-            color_discrete_sequence=px.colors.sequential.Viridis,
-            title='Top 10 habilidades más demandadas en IA (global)',
-            labels={'required_skills': 'Habilidad', 'count': 'Cantidad'}
-        )
-        fig.update_layout(title_x=0.5)
-        st.plotly_chart(fig, use_container_width=True)
     
     st.markdown("---")
     st.subheader("Top habilidades más demandadas por país (burbujas)")
@@ -334,21 +338,7 @@ elif seccion == "Compensación y Salarios":
     )
     fig.update_traces(texttemplate='%{y:.2f}', textposition='outside')
     fig.update_layout(xaxis_tickangle=-45, showlegend=False, title_x=0.5)
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown("---")
-    st.subheader("Boxplot: Salario por nivel de experiencia")
-    fig = px.box(
-        df_filtered,
-        x='experience_level',
-        y='salary_usd',
-        color='experience_level',
-        color_discrete_sequence=px.colors.sequential.Plasma,
-        title='Distribución del salario por nivel de experiencia',
-        labels={'experience_level': 'Nivel de experiencia', 'salary_usd': 'Salario (USD)'}
-    )
-    fig.update_layout(xaxis={'categoryorder': 'total ascending'},xaxis_tickangle=-45, title_x=0.5)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True)    
     
 elif seccion == "Análisis de Correlación":
     
@@ -382,6 +372,20 @@ elif seccion == "Análisis de Correlación":
     fig_salary_exp.update_traces(texttemplate='%{text:.2f}', textposition='outside')
     fig_salary_exp.update_layout(xaxis_tickangle=-45, showlegend=False, title_x=0.5)
     st.plotly_chart(fig_salary_exp, use_container_width=True)
+
+    st.markdown("---")
+    st.subheader("Boxplot: Salario por nivel de experiencia")
+    fig = px.box(
+        df_filtered,
+        x='experience_level',
+        y='salary_usd',
+        color='experience_level',
+        color_discrete_sequence=px.colors.sequential.Plasma,
+        title='Distribución del salario por nivel de experiencia',
+        labels={'experience_level': 'Nivel de experiencia', 'salary_usd': 'Salario (USD)'}
+    )
+    fig.update_layout(xaxis={'categoryorder': 'total ascending'},xaxis_tickangle=-45, title_x=0.5)
+    st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
     st.subheader("Clustering: KPrototypes y KMeans")
