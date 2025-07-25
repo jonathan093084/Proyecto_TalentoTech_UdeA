@@ -6,6 +6,7 @@ El proyecto cuenta con un set de datos de 15.000 muestras en empleos, un noteboo
 - Set de datos: diversified_job_postings_version0.csv
 - Analsis de datos en Python: Proyecto_TTECH.ipynb
 - Dasboard del proyecto desarrollado en Streamlit: dashboard_streamlit.py
+- Informe de analsis de datos: Informe Analisis de Datos.pdf
 
 En el Dashboard pueden encontrar las siguientes secciones de analisi:
 - Visualizar tendencias salariales y de contratación.
